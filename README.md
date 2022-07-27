@@ -9,15 +9,15 @@
     CPF
     Telefone
     Email
-      Endereço
-        Cep
-        Logradouro
-        Numero  
-        Complemento
-        Bairro
-        Cidade
-        Estado
-        Pais
+    Endereço
+      Cep
+      Logradouro
+      Numero  
+      Complemento
+      Bairro
+      Cidade
+      Estado
+      Pais
         
 3-Ao informar um Cep o sistema deve realizar a busca dos dados relacionados ao mesmo no seguinte endereço: https://viacep.com.br/;<br>
 4-A forma de consumo da API do via Cep, deverá ser utilizando JSON;<br>
