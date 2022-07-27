@@ -1,6 +1,6 @@
 # InfoSistemas
 
-1-Utilizar a linguagem Delphi (Qualquer versão);
+1-Utilizar a linguagem Delphi (Qualquer versão); <br>
 2-Criar uma tela de cadastro de clientes, com os seguintes campos:
   Dados do Cadastro:
 
