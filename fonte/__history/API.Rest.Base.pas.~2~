@@ -1,0 +1,207 @@
+unit API.Rest.Base;
+
+interface
+
+uses
+  System.Classes, Rest.Response.Adapter, Rest.Types, Rest.Client, System.IniFiles,
+  System.SysUtils, Vcl.Forms, Data.DB, Rest.Json,
+
+  FireDAC.Stan.ExprFuncs, FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf,
+  FireDAC.DApt.Intf, FireDAC.Stan.Async, FireDAC.DApt, FireDAC.Comp.DataSet,
+  FireDAC.Comp.Client, FireDAC.UI.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool,
+  FireDAC.Phys, FireDAC.Phys.MSSQL, FireDAC.Phys.MSSQLDef, FireDAC.VCLUI.Wait,
+  FireDAC.Phys.ODBCBase;
+
+type
+  TRESTRequestParameterKind = Rest.Types.TRESTRequestParameterKind;
+  TRESTRequestMethod = Rest.Types.TRESTRequestMethod;
+  TRESTRequestParameterOption = Rest.Types.TRESTRequestParameterOption;
+  TRESTContentType = Rest.Types.TRESTContentType;
+  TJson = Rest.Json.TJson;
+
+  TAPIRestBase = class
+  strict private
+    RESTClient: TRESTClient;
+    RESTRequest: TRESTRequest;
+    RESTResponse: TRESTResponse;
+    RESTResponseDataSetAdapter: TRESTResponseDataSetAdapter;
+    FDMemTable: TFDMemTable;
+
+    procedure Init;
+
+    function GetBaseURL: string;
+    procedure SetBaseURL(const Value: string);
+
+    function GetMethod: TRESTRequestMethod;
+    procedure SetMethod(const Value: TRESTRequestMethod);
+
+    function GetParams: TRESTRequestParameterList;
+
+    function GetActive: Boolean;
+    procedure SetActive(const Value: Boolean);
+
+    function GetDataSet: TDataSet;
+  private
+    function GetJSONRetorno: string;
+
+  public
+    property Active: Boolean read GetActive write SetActive;
+    property BaseURL: string read GetBaseURL write SetBaseURL;
+    property Method: TRESTRequestMethod read GetMethod write SetMethod;
+    property Params: TRESTRequestParameterList read GetParams;
+    property DataSet: TDataSet read GetDataSet;
+
+    property JSONRetorno: string read GetJSONRetorno;
+
+    procedure AddParameter(const AName, AValue: string);
+
+    procedure AddAuthParameter(const AName, AValue: string; const AKind: TRESTRequestParameterKind;
+      const AOptions: TRESTRequestParameterOptions);
+
+    procedure AddBody(const ABodyContent: string; AContentType: TRESTContentType = TRESTContentType.ctNone);
+
+    function Execute: Boolean;
+
+    class function JsonToDataSet(const Json: string): TDataSet;
+
+    constructor Create; reintroduce;
+    destructor Destroy; override;
+  end;
+
+implementation
+
+uses System.Json;
+
+constructor TAPIRestBase.Create;
+begin
+  inherited Create;
+  RESTClient := TRESTClient.Create(nil);
+  RESTRequest := TRESTRequest.Create(nil);
+  RESTResponse := TRESTResponse.Create(nil);
+  RESTResponseDataSetAdapter := TRESTResponseDataSetAdapter.Create(nil);
+  FDMemTable := TFDMemTable.Create(nil);
+  Init;
+end;
+
+destructor TAPIRestBase.Destroy;
+begin
+  RESTResponseDataSetAdapter.Free;
+  RESTClient.Free;
+  RESTRequest.Free;
+  RESTResponse.Free;
+  FDMemTable.Free;
+  inherited Destroy;
+end;
+
+function TAPIRestBase.Execute: Boolean;
+begin
+  FDMemTable.Close;
+  RESTRequest.Execute;
+  result := RESTResponse.Status.Success;
+end;
+
+function TAPIRestBase.GetActive: Boolean;
+begin
+  result := RESTResponseDataSetAdapter.Active;
+end;
+
+function TAPIRestBase.GetBaseURL: string;
+begin
+  result := RESTClient.BaseURL;
+end;
+
+function TAPIRestBase.GetDataSet: TDataSet;
+begin
+  result := FDMemTable;
+end;
+
+function TAPIRestBase.GetJSONRetorno: string;
+begin
+  result := RESTResponse.Content;
+end;
+
+function TAPIRestBase.GetMethod: TRESTRequestMethod;
+begin
+  result := RESTRequest.Method;
+end;
+
+function TAPIRestBase.GetParams: TRESTRequestParameterList;
+begin
+  result := RESTRequest.Params;
+end;
+
+procedure TAPIRestBase.Init;
+begin
+  const
+    TIMEOUT_5_MINUTOS = 300000;
+
+  RESTClient.Accept := '*/*';
+  RESTClient.AcceptCharset := 'utf-8, *;q=0.8';
+  RESTClient.ContentType := 'application/json';
+  RESTClient.Params.Clear;
+
+  RESTResponse.ContentType := 'application/json';
+
+  RESTRequest.Client := RESTClient;
+  RESTRequest.Response := RESTResponse;
+  RESTRequest.Timeout := TIMEOUT_5_MINUTOS;
+
+  RESTResponseDataSetAdapter.StringFieldSize := 10000;
+  RESTResponseDataSetAdapter.DataSet := FDMemTable;
+  RESTResponseDataSetAdapter.Response := RESTResponse;
+end;
+
+class function TAPIRestBase.JsonToDataSet(const Json: string): TDataSet;
+begin
+  if Json.Trim.IsEmpty then
+    Exit(nil);
+
+  result := TFDMemTable.Create(nil);
+  var
+  JSONArray := TJSONObject.ParseJSONValue(Json) as TJSONArray;
+  var
+  DataSetAdapter := TCustomJSONDataSetAdapter.Create(Nil);
+  try
+    DataSetAdapter.StringFieldSize := 10000;
+    DataSetAdapter.DataSet := result;
+    DataSetAdapter.UpdateDataSet(JSONArray);
+  finally
+    JSONArray.Free;
+    DataSetAdapter.Free;
+  end;
+end;
+
+procedure TAPIRestBase.SetActive(const Value: Boolean);
+begin
+  RESTResponseDataSetAdapter.Active := Value;
+end;
+
+procedure TAPIRestBase.SetBaseURL(const Value: string);
+begin
+  RESTClient.BaseURL := Value;
+end;
+
+procedure TAPIRestBase.SetMethod(const Value: TRESTRequestMethod);
+begin
+  RESTRequest.Method := Value;
+end;
+
+procedure TAPIRestBase.AddAuthParameter(const AName, AValue: string;
+  const AKind: TRESTRequestParameterKind;
+  const AOptions: TRESTRequestParameterOptions);
+begin
+  RESTRequest.AddAuthParameter(AName, AValue, AKind, AOptions);
+end;
+
+procedure TAPIRestBase.AddBody(const ABodyContent: string; AContentType: TRESTContentType = TRESTContentType.ctNone);
+begin
+  RESTRequest.AddBody(ABodyContent, AContentType);
+end;
+
+procedure TAPIRestBase.AddParameter(const AName, AValue: string);
+begin
+  RESTRequest.AddParameter(AName, AValue);
+end;
+
+end.

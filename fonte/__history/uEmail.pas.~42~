@@ -1,0 +1,220 @@
+﻿unit UEmail;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Comp.Client, FireDAC.Comp.DataSet,
+  FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf,
+  FireDAC.DApt.Intf, FireDAC.UI.Intf, FireDAC.Stan.Def, FireDAC.Stan.Pool,
+  FireDAC.Stan.Async, FireDAC.Phys, FireDAC.VCLUI.Wait, FireDAC.Comp.Script,
+  Vcl.Samples.Gauges, Vcl.StdCtrls, Vcl.Forms,
+  System.SysUtils, System.Classes, StrUtils, DateUtils, Data.DB,
+  IdBaseComponent, IdTCPConnection, IdExplicitTLSClientServerBase, IdMessageClient, IdSMTP,
+  IdIOHandlerStack, IdSSL, IdSSLOpenSSL, IdMessage, IdText,
+  IdAttachmentFile;
+
+type
+{$M+}
+  TTipoCriptografia = (criptNenhum, criptSSL, criptTLS);
+
+  TParametrosEmail = record
+    emailRemetente: string;
+    nomeRemetente: string;
+    assunto: string;
+    corpo: string;
+    anexo: TMemoryStream;
+    smtp: string;
+    porta: integer;
+    emailComCopia: string;
+    emailDestinatario: string;
+    criptografia: TTipoCriptografia;
+    senha: string;
+  end;
+
+  IEnviarEmail = interface
+    ['{15FD296F-CAC2-4CF4-8C82-2F49CDA3FEE9}']
+    function Enviar: Boolean;
+  end;
+
+  TEnviarEmail = class(TInterfacedObject, IEnviarEmail)
+  private
+    { private declarations }
+  var
+    FParametro: TParametrosEmail;
+    function Enviar: Boolean;
+  protected
+    { protected declarations }
+  public
+    { public declarations }
+    constructor Create(const pParametros: TParametrosEmail);
+    destructor Destroy; override;
+    class function New(const pParametros: TParametrosEmail): IEnviarEmail;
+  end;
+
+implementation
+
+{ TEnviarEmail }
+
+// uses SCV.Lib.Helper.TMemoryStreamHelper, SCV.Lib.TGlobalContext;
+
+class function TEnviarEmail.New(const pParametros: TParametrosEmail): IEnviarEmail;
+begin
+  Result := Self.Create(pParametros);
+end;
+
+constructor TEnviarEmail.Create(const pParametros: TParametrosEmail);
+begin
+  FParametro := pParametros;
+end;
+
+destructor TEnviarEmail.Destroy;
+begin
+  inherited;
+end;
+
+function TEnviarEmail.Enviar: Boolean;
+var
+  I: integer;
+  IdMessage: TIdMessage;
+  IdCorpo: TIdText;
+  IdAnexo: TIdAttachmentFile;
+  IdSSL: TIdSSLIOHandlerSocketOpenSSL;
+  aIdSMTP: TIdSMTP;
+begin
+
+  if FParametro.smtp.Trim.isempty then
+    raise Exception.Create('É necessário informar servidor de email.');
+
+  if FParametro.porta = 0 then
+    raise Exception.Create('É necessário informar porta servidor de email.');
+
+  if FParametro.emailRemetente.Trim.isempty then
+    raise Exception.Create('É necessário informar usuário do servidor de email.');
+
+  if FParametro.senha.Trim.isempty then
+    raise Exception.Create('É necessário informar senha do servidor de email.');
+
+  try
+    Application.ProcessMessages;
+
+    IdSSL := TIdSSLIOHandlerSocketOpenSSL.Create();
+    IdMessage := TIdMessage.Create();
+    aIdSMTP := TIdSMTP.Create();
+
+    aIdSMTP.Disconnect;
+    aIdSMTP.AuthType := satDefault;
+    aIdSMTP.IOHandler := IdSSL;
+    aIdSMTP.Host := FParametro.smtp;
+    aIdSMTP.Port := FParametro.porta;
+    aIdSMTP.UserName := FParametro.emailRemetente;
+    aIdSMTP.Password := FParametro.senha;
+
+    case FParametro.criptografia of
+      criptNenhum:
+        begin
+          aIdSMTP.IOHandler := nil;
+          aIdSMTP.UseTLS := utNoTLSSupport;
+        end;
+      criptSSL:
+        begin
+          IdSSL.SSLOptions.Method := sslvSSLv23;
+          IdSSL.SSLOptions.Mode := sslmClient;
+          aIdSMTP.UseTLS := utUseImplicitTLS;
+          IdSSL.Port := aIdSMTP.Port;
+          IdSSL.Destination := aIdSMTP.Host + ':' + aIdSMTP.Port.tostring;
+          IdSSL.Host := aIdSMTP.Host;
+        end;
+      criptTLS:
+        aIdSMTP.UseTLS := utUseRequireTLS;
+    end;
+
+    IdMessage.ContentType := 'multipart/mixed'; // obrigatoriamente!
+    IdMessage.Date := Date;
+    IdMessage.Recipients.Clear;
+    IdMessage.From.Address := FParametro.emailRemetente;
+    IdMessage.From.Name := FParametro.nomeRemetente;
+
+    if not FParametro.emailComCopia.Trim.isempty then
+      IdMessage.CCList.EMailAddresses := FParametro.emailComCopia.Trim;
+
+    IdMessage.Recipients.EMailAddresses := FParametro.emailDestinatario;
+
+    IdMessage.Subject := FParametro.assunto;
+
+    IdCorpo := TIdText.Create(IdMessage.MessageParts, nil);
+    IdCorpo.ContentType := 'text/html';
+    IdCorpo.ContentTransfer := '7bit'; // para SAIR ACENTUADO !!!! Pois, 8bit SAI SEM ACENTO !!!!
+    IdCorpo.Body.Clear;
+
+    var
+    corpo := FParametro.corpo.Replace('?', '').Replace('￼', '');
+
+    IdCorpo.Body.Add(Copy(corpo, 1, Pos('*\', corpo)));
+    IdCorpo.Body.Add(Copy(corpo, Pos('*/', corpo), Length(corpo)));
+
+    if FParametro.anexo <> nil then
+    begin
+      for I := 0 to Pred(FParametro.anexo.Count) do
+      begin
+        try
+          IdAnexo := TIdAttachmentFile.Create(IdMessage.MessageParts, FParametro.anexo.Strings[I]);
+          IdAnexo.ContentDescription := 'Arquivo Anexo: ' + ExtractFileName(FParametro.anexo.Strings[I]);
+        except
+        end;
+      end;
+    end;
+
+    with aIdSMTP do
+      try
+        try
+          Connect;
+          Authenticate;
+        except
+          on E: Exception do
+          begin
+            raise Exception.Create('Autenticação Falhou. ' + sLineBreak +
+              'Verifique seu nome de usuário e senha ou tente de novo agora ou mais tarde.' + sLineBreak +
+              'Erro retornado pelo servidor: ' + sLineBreak + E.Message + sLineBreak +
+              'Local do erro: SCV.Classe.Email');
+            exit(False);
+          end;
+        end;
+
+        try
+          if Connected then
+          begin
+            Send(IdMessage);
+            Result := True;
+          end
+          else
+          begin
+            raise Exception.Create('A conexão com o provedor foi interrompida.' + sLineBreak + 'Verifique se a sua internet está ativa.');
+            exit(False);
+          end;
+        except
+          on E: Exception do
+          begin
+            raise Exception.Create('Falha no Envio de e-mail: ' + E.Message + sLineBreak +
+              'Destinatário: ' + FParametro.emailDestinatario + sLineBreak +
+              'Local do erro: uEmail');
+            Result := False;
+            exit(False);
+          end;
+        end;
+      finally
+        Disconnect;
+      end;
+  finally
+    if Assigned(IdMessage) then
+      FreeAndNil(IdMessage);
+
+    if Assigned(IdSSL) then
+      FreeAndNil(IdSSL);
+
+    if Assigned(aIdSMTP) then
+      FreeAndNil(aIdSMTP);
+  end;
+end;
+
+end.

@@ -1,0 +1,317 @@
+unit uEmail.Parametros;
+
+interface
+
+uses
+  System.SysUtils, System.StrUtils, System.Classes;
+
+type
+  TTipoCriptografia = (criptNenhum, criptSSL, criptTLS);
+
+  IEmailParametros = interface
+    ['{58B1CC7E-C653-4028-8D6F-892BE82123D0}']
+    function CORPO: String;
+    function PARA: String;
+    function ANEXO: TStringList;
+    function COPIA: String;
+    function ASSUNTO: String;
+    function SMTP: string;
+    function PORTA: Integer;
+    function USUARIO: string;
+    function SENHA: string;
+    function NOME: string;
+    function DE: string;
+    function CRIPTOGRAFIA: TTipoCriptografia;
+
+    function SetANEXO(const Value: TStringList): IEmailParametros;
+    function SetASSUNTO(const Value: String): IEmailParametros;
+    function SetCOPIA(const Value: String): IEmailParametros;
+    function SetCORPO(const Value: String): IEmailParametros;
+    function SetPARA(const Value: String): IEmailParametros;
+    function SetDE(const Value: String): IEmailParametros;
+    function SetSMTP(const Value: String): IEmailParametros;
+    function SetPORTA(const Value: String): IEmailParametros;
+    function SetSENHA(const Value: String): IEmailParametros;
+  end;
+
+  TEmailParametros = class(TInterfacedObject, IEmailParametros)
+  private
+    FCORPO: String;
+    FPARA: String;
+    FANEXO: TStringList;
+    FCOPIA: String;
+    FASSUNTO: String;
+    FSMTP: string;
+    FPORTA: Integer;
+    FUSUARIO: string;
+    FSENHA: string;
+    FNOME: string;
+    FEMAIL: string;
+    FCRIPTOGRAFIA: TTipoCriptografia;
+
+    function ANEXO: TStringList;
+    function ASSINATURA: string;
+    function ASSUNTO: String;
+    function COPIA: String;
+    function CORPO: String;
+    function CRIPTOGRAFIA: TTipoCriptografia;
+    function DE: string;
+    function NOME: string;
+    function PARA: String;
+    function PORTA: Integer;
+    function SENHA: string;
+    function SMTP: String;
+
+    function SetANEXO(const Value: TStringList): IEmailParametros;
+    function SetASSUNTO(const Value: String): IEmailParametros;
+    function SetCOPIA(const Value: String): IEmailParametros;
+    function SetCORPO(const Value: String): IEmailParametros;
+    function SetID_EMPRESA(const Value: Integer): IEmailParametros;
+    function SetPARA(const Value: String): IEmailParametros;
+
+    procedure SetASSINATURA(const Value: string);
+    procedure SetCRIPTOGRAFIA(const Value: TTipoCriptografia);
+    procedure SetEMAIL(const Value: string);
+    procedure SetNOME(const Value: string);
+    procedure SetPORTA(const Value: Integer);
+    procedure SetSENHA(const Value: string);
+    procedure SetUSUARIO(const Value: string);
+
+    function StrToCriptografia(const Value: string): TTipoCriptografia;
+  public
+    constructor Create;
+    class function New: IEmailParametros;
+    destructor Destroy; override;
+
+  end;
+
+implementation
+
+
+{ TEmailParametros }
+
+function TEmailParametros.ANEXO: TStringList;
+begin
+  Result := FANEXO;
+end;
+
+function TEmailParametros.ASSINATURA: string;
+begin
+  Result := FASSINATURA;
+end;
+
+function TEmailParametros.ASSUNTO: String;
+begin
+  Result := FASSUNTO;
+end;
+
+function TEmailParametros.COPIA: String;
+begin
+  Result := FCOPIA;
+end;
+
+function TEmailParametros.CORPO: String;
+begin
+  Result := FCORPO;
+end;
+
+class function TEmailParametros.New: IEmailParametros;
+begin
+  Result := Self.Create;
+end;
+
+constructor TEmailParametros.Create;
+begin
+  SetCORPO(string.empty);
+  SetPARA(string.empty);
+  SetCOPIA(string.empty);
+  SetASSUNTO(string.empty);
+  FSMTP := string.empty;
+  FPORTA := 0;
+  FUSUARIO := string.empty;
+  FSENHA := string.empty;
+  FNOME := string.empty;
+  FEMAIL := string.empty;
+end;
+
+function TEmailParametros.CRIPTOGRAFIA: TTipoCriptografia;
+begin
+  Result := FCRIPTOGRAFIA;
+end;
+
+destructor TEmailParametros.Destroy;
+begin
+  inherited;
+end;
+
+function TEmailParametros.DE: string;
+begin
+  Result := FEMAIL;
+end;
+
+function TEmailParametros.ID_EMPRESA: Integer;
+begin
+  Result := FID_EMPRESA;
+end;
+
+function TEmailParametros.NOME: string;
+begin
+  Result := FNOME;
+end;
+
+function TEmailParametros.PARA: String;
+begin
+  Result := FPARA;
+end;
+
+function TEmailParametros.PORTA: Integer;
+begin
+  Result := FPORTA;
+end;
+
+function TEmailParametros.SENHA: string;
+begin
+  Result := FSENHA;
+end;
+
+function TEmailParametros.SetANEXO(const Value: TStringList): IEmailParametros;
+begin
+  Result := Self;
+  FANEXO := Value;
+end;
+
+procedure TEmailParametros.SetASSINATURA(const Value: string);
+begin
+  FASSINATURA := Value;
+end;
+
+function TEmailParametros.SetASSUNTO(const Value: String): IEmailParametros;
+begin
+  Result := Self;
+  FASSUNTO := Value;
+end;
+
+function TEmailParametros.SetCOPIA(const Value: String): IEmailParametros;
+begin
+  Result := Self;
+  FCOPIA := Value;
+end;
+
+function TEmailParametros.SetCORPO(const Value: String): IEmailParametros;
+begin
+  Result := Self;
+  FCORPO := Value;
+end;
+
+procedure TEmailParametros.SetCRIPTOGRAFIA(const Value: TTipoCriptografia);
+begin
+  FCRIPTOGRAFIA := Value;
+end;
+
+procedure TEmailParametros.SetEMAIL(const Value: string);
+begin
+  FEMAIL := Value;
+end;
+
+function TEmailParametros.SetID_EMPRESA(const Value: Integer): IEmailParametros;
+begin
+  Result := Self;
+
+  FID_EMPRESA := Value;
+
+  var
+  objEmpresa := TCONTROLLER_EMPRESAS.Create;
+  try
+    objEmpresa.ID := FID_EMPRESA;
+    if not objEmpresa.Carregar then
+      Exit;
+
+    FEMAIL := objEmpresa.DE.GetValueOrDefault;
+    FASSINATURA := objEmpresa.ASSINATURA_EMAIL.DataString;
+  finally
+    if Assigned(objEmpresa) then
+      FreeAndNil(objEmpresa);
+  end;
+
+  var
+  objParametros := TCONTROLLER_PARAMETROS_SISTEMA.Create;
+  try
+    objParametros.ID := FID_EMPRESA;
+    if not objParametros.Carregar then
+      Exit;
+
+    FSMTP := objParametros.EMAIL_SMTP.GetValueOrDefault;
+    FPORTA := objParametros.EMAIL_PORTA.GetValueOrDefault;
+    FUSUARIO := objParametros.EMAIL_USUARIO.GetValueOrDefault;
+    FSENHA := objParametros.EMAIL_SENHA.GetValueOrDefault;
+
+    FCRIPTOGRAFIA := StrToCriptografia(objParametros.EMAIL_CONEXAO_SLL.GetValueOrDefault);
+    FEMAIL := objParametros.EMAIL_USUARIO.GetValueOrDefault;
+  finally
+    if Assigned(objParametros) then
+      FreeAndNil(objParametros);
+  end;
+
+  var
+  objFuncionario := TCONTROLLER_FUNCIONARIOS.Create;
+  try
+    objFuncionario.ID_USUARIO := TGlobalContext.Instance.USUARIO.ID;
+    if objFuncionario.Carregar then
+      FNOME := objFuncionario.NOME.GetValueOrDefault
+    else
+      FNOME := TGlobalContext.Instance.USUARIO.Login;
+  finally
+    if Assigned(objFuncionario) then
+      FreeAndNil(objFuncionario);
+  end;
+end;
+
+procedure TEmailParametros.SetNOME(const Value: string);
+begin
+  FNOME := Value;
+end;
+
+function TEmailParametros.SetPARA(const Value: String): IEmailParametros;
+begin
+  Result := Self;
+  FPARA := Value;
+end;
+
+procedure TEmailParametros.SetPORTA(const Value: Integer);
+begin
+  FPORTA := Value;
+end;
+
+procedure TEmailParametros.SetSENHA(const Value: string);
+begin
+  FSENHA := Value;
+end;
+
+procedure TEmailParametros.SetUSUARIO(const Value: string);
+begin
+  FUSUARIO := Value;
+end;
+
+function TEmailParametros.SMTP: String;
+begin
+  Result := FSMTP;
+end;
+
+function TEmailParametros.USUARIO: string;
+begin
+  Result := FUSUARIO;
+end;
+
+function TEmailParametros.StrToCriptografia(const Value: string): TTipoCriptografia;
+begin
+  case AnsiIndexStr(Value, ['S', 'T']) of
+    0:
+      Result := TTipoCriptografia.criptSSL;
+    1:
+      Result := TTipoCriptografia.criptTLS;
+  else
+    Result := TTipoCriptografia.criptNenhum;
+  end;
+end;
+
+end.

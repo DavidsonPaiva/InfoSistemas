@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>2022/07/25 13:57:46.000.502,=C:\Users\asppa\Documents\Embarcadero\Studio\Projects\Unit1.pas</Transaction>
+    <Transaction>2022/07/25 14:05:31.000.467,C:\Users\asppa\Documents\Embarcadero\Studio\Projects\Unit1.pas=D:\ProjetosDelphi\Testes\info\fonte\uPrincipal.pas</Transaction>
+    <Transaction>2022/07/25 14:05:31.000.467,C:\Users\asppa\Documents\Embarcadero\Studio\Projects\Unit1.dfm=D:\ProjetosDelphi\Testes\info\fonte\uPrincipal.dfm</Transaction>
+    <Transaction>2022/07/25 14:05:37.000.038,C:\Users\asppa\Documents\Embarcadero\Studio\Projects\Project1.dproj=D:\ProjetosDelphi\Testes\info\fonte\CadInfo.dproj</Transaction>
+    <Transaction>2022/07/25 14:06:17.000.295,=D:\ProjetosDelphi\Testes\info\fonte\Unit1.pas</Transaction>
+    <Transaction>2022/07/25 14:24:32.000.848,D:\ProjetosDelphi\Testes\info\fonte\Unit1.pas=D:\ProjetosDelphi\Testes\info\fonte\API.Rest.Base.pas</Transaction>
+    <Transaction>2022/07/25 14:43:29.000.248,D:\ProjetosDelphi\Testes\info\fonte\API.Rest.Base.pas=D:\ProjetosDelphi\Testes\info\fonte\uConsultaCEP.pas</Transaction>
+    <Transaction>2022/07/25 17:41:13.000.309,=D:\ProjetosDelphi\Testes\info\fonte\uEmail.pas</Transaction>
+    <Transaction>2022/07/25 17:41:13.000.302,=D:\ProjetosDelphi\Testes\info\fonte\uEmail.Parametros.pas</Transaction>
+    <Transaction>2022/07/25 17:49:19.000.706,D:\ProjetosDelphi\Testes\info\fonte\uEmail.Parametros.pas=</Transaction>
+  </Transactions>
+</BorlandProject>

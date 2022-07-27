@@ -1,0 +1,576 @@
+unit uPrincipal;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
+  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.ExtCtrls, REST.Types,
+  FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Param, System.TypInfo,
+  FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf, FireDAC.DApt.Intf, StrUtils, ShellApi,
+  Data.DB, FireDAC.Comp.DataSet, FireDAC.Comp.Client, REST.Response.Adapter,
+  REST.Client, Data.Bind.Components, Data.Bind.ObjectScope, uConsultaCEP, UEmail,
+  Vcl.Buttons, JvComponentBase, JvEnterTab, Xml.xmldom, Xml.XMLIntf, Xml.XMLDoc,
+  Vcl.Grids, Vcl.DBGrids, Vcl.DBCtrls, Vcl.WinXCtrls, dxGDIPlusClasses;
+
+type
+  TMyFields = (fdNome = 0, fdIdentidade = 1, fdCpf = 2, fdTelefone = 3, fdEmail = 4, fdEndereco = 5, fdCep = 6,
+    fdLogradouro = 7, fdNumero = 8, fdComplemento = 9, fdBairro = 10, fdCidade = 11, fdEstado = 12, fdPais = 13);
+
+  TMyFieldsHelper = record helper
+    for TMyFields
+    function AsByte: Byte;
+      inline;
+    function AsValue: Integer; inline;
+    /// <summary>Converte um número inteiro num Enum, esse número deve ser correspondente a posição dele no Vetor "AsByte" </summary>
+    class function Parse(_iField: Integer): TMyFields; overload; static;
+    class function Parse(_iField: String): TMyFields; overload; static;
+    function Descricao(pComCodigo: boolean = False): string; inline;
+  end;
+
+  TfrmCadCliente = class(TForm)
+    pnlTop: TPanel;
+    pnlGeral: TPanel;
+    pnlRodape: TPanel;
+    pnlButtons: TPanel;
+    btnIncluir: TButton;
+    btnSalvar: TButton;
+    edtCEP: TEdit;
+    edtLogradouro: TEdit;
+    edtUF: TEdit;
+    edtCidade: TEdit;
+    edtBairro: TEdit;
+    edtNumero: TEdit;
+    lblLogradouro: TLabel;
+    lblNumero: TLabel;
+    lblBairro: TLabel;
+    lblCEP: TLabel;
+    lblCidade: TLabel;
+    lblUF: TLabel;
+    edtNome: TEdit;
+    lblNome: TLabel;
+    lblCPF: TLabel;
+    edtCPF: TEdit;
+    edtIdentidade: TEdit;
+    lblIdentidade: TLabel;
+    edtTelefone: TEdit;
+    lblTelefone: TLabel;
+    edtEmail: TEdit;
+    Label5: TLabel;
+    edtComplemento: TEdit;
+    lblComplemento: TLabel;
+    edtPais: TEdit;
+    lblPais: TLabel;
+    pnlMensagem: TPanel;
+    ActivityIndicator1: TActivityIndicator;
+    Image1: TImage;
+
+    procedure edtCEPExit(Sender: TObject);
+    procedure btnIncluirClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure btnSalvarClick(Sender: TObject);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure pnlRodapeClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure Image1Click(Sender: TObject);
+  private
+    { Private declarations }
+
+    procedure LimparDados;
+    procedure LimpaDadosLogradouro;
+    procedure BuscaCEP;
+    procedure ExibeMensagem(const pMensagem: string);
+    procedure CloseMensagem;
+    procedure AbreSite;
+    function FormatarCPF(const Value: string): string;
+    function FormatarTelefone(const Value: string): string;
+    function FormatarCEP(const Value: string): string;
+
+    function getAnexo: TStringList;
+    function getCorpo: String;
+    procedure EnviarEmail;
+
+    function InitialUpper(Value: String): String;
+    function getDadosField(const Value: TMyFields): String;
+
+    function getBairro: string;
+    function getCep: string;
+    function getCidade: string;
+    function getComplemento: string;
+    function getCPF: string;
+    function getEmail: string;
+    function getEstado: string;
+    function getIdentidade: string;
+    function getLogradouro: string;
+    function getNome: string;
+    function getNumero: string;
+    function getPais: string;
+    function getTelefone: string;
+    function SoNumeros(const Texto: String): String;
+
+    property Nome: string read getNome;
+    property Identidade: string read getIdentidade;
+    property CPF: string read getCPF;
+    property Telefone: string read getTelefone;
+    property Email: string read getEmail;
+
+    property Cep: string read getCep;
+    property Logradouro: string read getLogradouro;
+    property Numero: string read getNumero;
+    property Complemento: string read getComplemento;
+    property Bairro: string read getBairro;
+    property Cidade: string read getCidade;
+    property Estado: string read getEstado;
+    property Pais: string read getPais;
+
+  public
+    { Public declarations }
+  end;
+
+var
+  frmCadCliente: TfrmCadCliente;
+
+implementation
+
+const
+  MyArrayFields: array [0 .. 13] of string = ('Nome', 'Identidade', 'Cpf', 'Telefone', 'Email', 'Endereco', 'Cep', 'Logradouro', 'Numero', 'Complemento',
+    'Bairro', 'Cidade', 'Estado', 'Pais');
+
+{$R *.dfm}
+  { TfrmCadCliente }
+
+procedure TfrmCadCliente.AbreSite;
+begin
+  ShellExecute(Handle, 'open', 'https://www.infosistemas.com.br/', nil, nil, SW_SHOW);
+end;
+
+procedure TfrmCadCliente.btnIncluirClick(Sender: TObject);
+begin
+  LimparDados;
+  if edtNome.CanFocus then
+    edtNome.SetFocus;
+end;
+
+procedure TfrmCadCliente.btnSalvarClick(Sender: TObject);
+begin
+  EnviarEmail;
+end;
+
+procedure TfrmCadCliente.BuscaCEP;
+begin
+  if Trim(edtCEP.Text).IsEmpty then
+    exit;
+
+  if Trim(edtCEP.Text).Length < 8 then
+    raise Exception.Create('CEP Incorreto!');
+
+  LimpaDadosLogradouro;
+
+  ExibeMensagem('Consultando CEP, aguarde...');
+  try
+    var
+    FRetorno := TConsultaCEP.New(edtCEP.Text).Execute;
+
+    edtLogradouro.Text := FRetorno.Logradouro;
+    edtBairro.Text := FRetorno.Bairro;
+    edtComplemento.Text := FRetorno.Complemento;
+    edtCidade.Text := FRetorno.localidade;
+    edtUF.Text := FRetorno.uf;
+  finally
+    CloseMensagem;
+  end;
+end;
+
+procedure TfrmCadCliente.CloseMensagem;
+begin
+  ActivityIndicator1.Animate := False;
+  pnlMensagem.Caption := String.Empty;
+  pnlMensagem.Refresh;
+  pnlMensagem.Visible := False;
+end;
+
+procedure TfrmCadCliente.edtCEPExit(Sender: TObject);
+begin
+  BuscaCEP;
+end;
+
+procedure TfrmCadCliente.EnviarEmail;
+  function getParamsEmail: TParametrosEmail;
+  begin
+    Result.emailRemetente := InputBox('Email', 'Email Remetente: ', '');
+    Result.nomeRemetente := InputBox('Email', 'Nome Remetente: ', 'Info Sistemas');
+    Result.smtp := InputBox('Email', 'SMTP: ', 'smtp.gmail.com');
+    Result.porta := StrToIntDef(InputBox('Email', 'Porta: ', '465'), 465);
+    Result.criptografia := TTipoCriptografia.criptSSL;
+    Result.senha := InputBox('Email', 'Senha: ', Result.senha);
+
+    Result.assunto := Format('Cadastro do cliente %s', [Nome]);
+    Result.corpo := getCorpo;
+    Result.Anexo := getAnexo;
+    Result.emailDestinatario := InputBox('Email', 'Email Destinatário', Email);
+  end;
+
+begin
+  try
+    var
+    FParams := getParamsEmail;
+    ExibeMensagem('Salvando e enviando email, aguarde...');
+    if not TEnviarEmail.New(FParams).Enviar then
+      exit;
+    Application.MessageBox('Email enviado com sucesso!', 'Atenção', 64);
+  finally
+    CloseMensagem;
+  end;
+end;
+
+procedure TfrmCadCliente.ExibeMensagem(const pMensagem: String);
+begin
+  pnlMensagem.Width := pnlGeral.Width;
+  pnlMensagem.Caption := pMensagem;
+  ActivityIndicator1.Animate := True;
+  pnlMensagem.Refresh;
+  pnlMensagem.Visible := True;
+  Application.ProcessMessages;
+end;
+
+function TfrmCadCliente.FormatarCEP(const Value: string): string;
+begin
+  if Value.Trim.IsEmpty then
+    exit(string.Empty);
+
+  Result := Somentenu;
+
+  if Result.Length <> 8 then
+    Result := Cep
+  else
+    Result := Format('%s-%s', [Copy(Result, 1, 5), Copy(Result, 6, 3)]);
+end;
+
+function TfrmCadCliente.FormatarCPF(const Value: string): string;
+begin
+  if Value.Trim.IsEmpty then
+    exit(String.Empty);
+
+  Result := Format('%s.%s.%s-%s', [Copy(Value, 1, 3), Copy(Value, 4, 3), Copy(Value, 7, 3), Copy(Value, 10, 2)]);
+end;
+
+function TfrmCadCliente.FormatarTelefone(const Value: String): String;
+var
+  Tamanho: Integer;
+  NumeroTelefone: string;
+begin
+  if Value.Trim.IsEmpty then
+    exit(string.Empty);
+
+  NumeroTelefone := SoNumeros(Value);
+  Tamanho := NumeroTelefone.Length;
+  case Tamanho of
+    8:
+      Result := Format('%s-%s', [Copy(NumeroTelefone, 1, 4), Copy(NumeroTelefone, 5, 4)]);
+    9:
+      Result := Format('%s-%s', [Copy(NumeroTelefone, 1, 5), Copy(NumeroTelefone, 6, 4)]);
+    10:
+      Result := Format('(%s) %s-%s', [Copy(NumeroTelefone, 1, 2), Copy(NumeroTelefone, 3, 4), Copy(NumeroTelefone, 7, 4)]);
+    11:
+      Result := Format('(%s) %s-%s', [Copy(NumeroTelefone, 1, 2), Copy(NumeroTelefone, 3, 5), Copy(NumeroTelefone, 8, 4)]);
+  else
+    Result := NumeroTelefone;
+  end;
+end;
+
+procedure TfrmCadCliente.FormCreate(Sender: TObject);
+begin
+  pnlMensagem.Visible := False;
+end;
+
+procedure TfrmCadCliente.FormKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if Key = VK_ESCAPE then
+  begin
+    Close;
+  end
+  else if (Key = VK_RETURN) then
+  begin
+    try
+      if (Assigned(TWinControl(ActiveControl)) and (TWinControl(ActiveControl).ClassType <> TDBMemo) and
+        (TWinControl(ActiveControl).ClassType <> TMemo) and (TWinControl(ActiveControl).ClassType <> TDBGrid)) then
+      begin
+        Keybd_Event(VK_TAB, 0, 0, 0);
+      end;
+    except
+    end;
+  end
+  else if Key = VK_UP then
+  begin
+    try
+      if ((TWinControl(ActiveControl).ClassType = TEdit) or (TWinControl(ActiveControl).ClassType = TDBEdit)) then
+      begin
+        if ActiveControl.CanFocus then
+        begin
+          Key := 0;
+          Perform(WM_NEXTDLGCTL, 1, 0);
+        end;
+      end;
+    except
+    end;
+  end
+end;
+
+procedure TfrmCadCliente.FormShow(Sender: TObject);
+begin
+  btnIncluirClick(nil);
+end;
+
+function TfrmCadCliente.getBairro: string;
+begin
+  Result := Trim(edtBairro.Text);
+end;
+
+function TfrmCadCliente.getCep: string;
+begin
+  Result := FormatarCEP(edtCEP.Text);
+end;
+
+function TfrmCadCliente.getCidade: string;
+begin
+  Result := Trim(edtCidade.Text);
+end;
+
+function TfrmCadCliente.getComplemento: string;
+begin
+  Result := Trim(edtComplemento.Text);
+end;
+
+function TfrmCadCliente.getCorpo: String;
+begin
+  var
+  Lista := TStringList.Create;
+  try
+    Lista.Add('<p><b> CADASTRO DE CLIENTES </b></p>');
+
+    for var Item := Low(TMyFields) to High(TMyFields) do
+    begin
+      if Item <> fdEndereco then
+      begin
+        if not getDadosField(Item).IsEmpty then
+          Lista.Add(Format('<b> %s </b>: %s<br>', [InitialUpper(Item.Descricao), getDadosField(Item)]));
+      end;
+    end;
+
+    Result := Lista.Text;
+  finally
+    FreeAndNil(Lista);
+  end;
+end;
+
+function TfrmCadCliente.getCPF: string;
+begin
+  Result := FormatarCPF(edtCPF.Text);
+end;
+
+function TfrmCadCliente.getDadosField(const Value: TMyFields): String;
+begin
+  case Value of
+    fdNome:
+      Result := Nome;
+    fdIdentidade:
+      Result := Identidade;
+    fdCpf:
+      Result := CPF;
+    fdTelefone:
+      Result := Telefone;
+    fdEmail:
+      Result := Email;
+    fdCep:
+      Result := Cep;
+    fdLogradouro:
+      Result := Logradouro;
+    fdNumero:
+      Result := Numero;
+    fdComplemento:
+      Result := Complemento;
+    fdBairro:
+      Result := Bairro;
+    fdCidade:
+      Result := Cidade;
+    fdEstado:
+      Result := Estado;
+    fdPais:
+      Result := Pais;
+  end;
+end;
+
+function TfrmCadCliente.getEmail: string;
+begin
+  Result := Trim(edtEmail.Text);
+end;
+
+function TfrmCadCliente.getEstado: string;
+begin
+  Result := Trim(edtUF.Text);
+end;
+
+function TfrmCadCliente.getIdentidade: string;
+begin
+  Result := Trim(edtIdentidade.Text);
+end;
+
+function TfrmCadCliente.getLogradouro: string;
+begin
+  Result := Trim(edtLogradouro.Text);
+end;
+
+function TfrmCadCliente.getNome: string;
+begin
+  Result := Trim(edtNome.Text);
+end;
+
+function TfrmCadCliente.getNumero: string;
+begin
+  Result := Trim(edtNumero.Text);
+end;
+
+function TfrmCadCliente.getPais: string;
+begin
+  Result := Trim(edtPais.Text);
+end;
+
+function TfrmCadCliente.getTelefone: string;
+begin
+  Result := FormatarTelefone(edtTelefone.Text);
+end;
+
+procedure TfrmCadCliente.LimpaDadosLogradouro;
+begin
+  for var i := 0 to Self.ComponentCount - 1 do
+  begin
+    if Self.Components[i] is TEdit then
+      if (Self.Components[i] as TEdit).Tag = 1 then
+        (Self.Components[i] as TEdit).Text := string.Empty;
+  end;
+end;
+
+procedure TfrmCadCliente.LimparDados;
+begin
+  for var i := 0 to Self.ComponentCount - 1 do
+  begin
+    if Self.Components[i] is TEdit then
+      (Self.Components[i] as TEdit).Text := string.Empty;
+  end;
+end;
+
+procedure TfrmCadCliente.pnlRodapeClick(Sender: TObject);
+begin
+  AbreSite;
+end;
+
+function TfrmCadCliente.getAnexo: TStringList;
+begin
+  Result := TStringList.Create;
+
+  var
+  myXML := TXMLDocument.Create(nil);
+
+  try
+    myXML.Xml.Add('<cadastro>');
+    for var Item := Low(TMyFields) to High(TMyFields) do
+    begin
+      if Item = fdEndereco then
+        myXML.Xml.Add('<endereco>')
+      else
+      begin
+        if not getDadosField(Item).IsEmpty then
+          myXML.Xml.Add(Format('<%s> %s </%s> ', [Item.Descricao.ToLower, getDadosField(Item), Item.Descricao.ToLower]));
+      end;
+    end;
+    myXML.Xml.Add('</endereco>');
+    myXML.Xml.Add('</cadastro>');
+    myXML.Active := True;
+
+    var
+    _Arquive := Format('%s%s.xml', [ExtractFilePath(Application.ExeName), Nome]);
+    myXML.SaveToFile(_Arquive);
+
+    Result.Clear;
+    Result.Add(_Arquive);
+  finally
+    FreeAndNil(myXML);
+  end;
+end;
+
+procedure TfrmCadCliente.Image1Click(Sender: TObject);
+begin
+  AbreSite;
+end;
+
+function TfrmCadCliente.InitialUpper(Value: String): String;
+begin
+  try
+    Value := AnsiLowerCase(Value);
+
+    var
+    Aux := string.Empty;
+
+    for var i := 1 to Length(Value) do
+    begin
+      if i = 1 then
+      begin
+        Aux := UpCase(Value[i]);
+        Aux := Aux + Value[i + 1];
+      end
+      else if Value[i] = ' ' then
+        Aux := Aux + UpCase(Value[i + 1])
+      else
+        Aux := Aux + Value[i + 1];
+    end;
+    Result := Aux.Trim;
+  except
+  end;
+end;
+
+function TfrmCadCliente.SoNumeros(Const Texto: String): String;
+begin
+  var
+  Aux := string.Empty;
+
+  for var i := 1 To Length(Texto) Do
+  begin
+    if CharInSet(Texto[i], ['0' .. '9']) then
+      Aux := Aux + Copy(Texto, i, 1);
+  end;
+  Result := Aux.Trim;
+end;
+
+{ TMyFieldsHelper }
+
+function TMyFieldsHelper.AsByte: Byte;
+begin
+  Result := Ord(Self);
+end;
+
+function TMyFieldsHelper.AsValue: Integer;
+begin
+  Result := Integer(Self);
+end;
+
+function TMyFieldsHelper.Descricao(pComCodigo: boolean): string;
+begin
+  Result := GetEnumName(TypeInfo(TMyFields), Integer(Self));
+
+  Result := Copy(Result, 3, Result.Length);
+
+  if pComCodigo then
+    Result := Result + Format(' (%d)', [Self.AsValue]);
+end;
+
+class function TMyFieldsHelper.Parse(_iField: String): TMyFields;
+begin
+  Result := TMyFields(AnsiIndexStr(_iField, MyArrayFields));
+end;
+
+class function TMyFieldsHelper.Parse(_iField: Integer): TMyFields;
+begin
+  Result := TMyFields(_iField);
+end;
+
+end.
